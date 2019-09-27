@@ -74,7 +74,13 @@ namespace InternetExplorerStarter
 
             if (identify) /* Identify screen by drawing screen number and exit! */
             {
-                Identify();
+                var identifyThread = new Thread(() =>
+                {
+                    Identify();
+                });
+                identifyThread.SetApartmentState(ApartmentState.STA);
+                identifyThread.Start();
+                identifyThread.Join();
                 return;
             }
 
