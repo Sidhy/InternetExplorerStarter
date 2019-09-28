@@ -18,8 +18,8 @@ namespace InternetExplorerStarter
         {
             List<string> urls = new List<string>();
             string task_name = "Internet Explorer Starter";
-            bool identify = false, show_help = false, maximize = false, show_version = false, relative_mode = false, keep_running = false;
-            bool kiosk = false, fullscreen = false, hide_addressbar = false, disable_addressbar = false;
+            bool identify = false, show_help = false, maximize = false, show_version = false, keep_running = false;
+            bool kiosk = false, hide_addressbar = false, disable_addressbar = false;
             int screenId = 1, offset_x = 0, offset_y = 0, window_h = 0, window_w = 0, refresh = 0;
 
             Thread TrayThread;
@@ -33,15 +33,13 @@ namespace InternetExplorerStarter
                 { "y=", "Place IE window on screen {y} position", (int v) => offset_y = v },
                 { "width=", "Window width", (int v) => window_w = v },
                 { "height=", "Window height", (int v) => window_h = v },
-                { "r|relative", "Position window relative to given screen number", v => relative_mode = v != null },
                 { "m|maximize",  "Maximize window", v => maximize = v != null },
                 { "k|kiosk", "Open in kiosk mode", v => kiosk = v != null },
-                { "f|fullscreen", "Open in fullscreen mode", v => fullscreen = v != null },
                 { "a|addressbar", "Hide address bar (this also hides tabs)", v => hide_addressbar = v != null },
                 { "d|disable_addressbar", "Disable addressbar", v => disable_addressbar = v != null },
                 { "n|name", "Name for task", v => task_name = v },
                 { "e|keeprunning", "Ensures IE is always running", v => keep_running =v != null },
-                { "refresh=", "refresh every x seconds (this will activate keep running)", (int v) => refresh = v },
+                { "r|refresh=", "refresh every x seconds (this will activate keep running)", (int v) => refresh = v },
                 { "version", "Show application version", v => show_version = v != null },
                 { "h|help",  "show this message and exit", v => show_help = v != null },
             };
@@ -168,23 +166,16 @@ namespace InternetExplorerStarter
                     screen_x = screen.WorkingArea.X;
                     screen_y = screen.WorkingArea.Y;
 
-                    // Set Screen position
-                    if (relative_mode)
-                    {
-                        screen_x = (Math.Abs(screen_x) + offset_x) * (screen_x < 0 ? -1 : 1);
-                        screen_y = (Math.Abs(screen_y) + offset_y) * (screen_y < 0 ? -1 : 1);
-                    }
-                    else
-                    {
-                        screen_x = screen_x != 0 ? screen_x : offset_x;
-                        screen_y = screen_y != 0 ? screen_y : offset_y;
-                    }
+                    // Set Screen Position
+                    screen_x += offset_x;
+                    screen_y += offset_y;
 
                     // set screen size
                     window_w = window_w != 0 ? window_w : screen.WorkingArea.Width;
                     window_h = window_h != 0 ? window_h : screen.WorkingArea.Height;
                 }
 
+                
                 IE.Show();
                 IE.SetForeground();
 
@@ -192,7 +183,6 @@ namespace InternetExplorerStarter
                 WinAPI.MoveWindow(IE.GetHWND, screen_x, screen_y, window_w, window_h, true);
 
                 if (maximize) IE.Maximize();
-                IE.SetFullscreen(fullscreen);
                 IE.SetKioskMode(kiosk);
                 IE.HideAddressbar(hide_addressbar);
                 if (disable_addressbar) IE.DisableAddressbar();

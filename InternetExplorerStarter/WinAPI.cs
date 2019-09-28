@@ -67,7 +67,6 @@ namespace InternetExplorerStarter
         [DllImport("kernel32.dll")]
         public static extern IntPtr GetConsoleWindow();
 
-
         /// <summary>
         /// Retrieves the show state and the restored, minimized, and maximized positions of the specified window.
         /// </summary>

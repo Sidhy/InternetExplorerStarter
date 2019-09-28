@@ -1,10 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Text;
 using System.Threading;
-using InternetExplorerStarter;
 using Microsoft.Win32;
 
 namespace InternetExplorerStarter
@@ -188,14 +184,6 @@ namespace InternetExplorerStarter
         public void SetKioskMode(bool enabled)
         {
             internetExplorer.TheaterMode = enabled;
-        }
-
-        /// <summary>
-        /// Enable fullscreen mode
-        /// </summary>
-        public void SetFullscreen(bool enabled)
-        {
-            internetExplorer.FullScreen = enabled;
         }
 
         /// <summary>
