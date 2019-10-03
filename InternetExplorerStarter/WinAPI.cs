@@ -23,6 +23,9 @@ namespace InternetExplorerStarter
         [DllImport("user32.dll")]
         public static extern uint GetWindowThreadProcessId(IntPtr hWnd, IntPtr ProcessId);
 
+        [DllImport("shell32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        public static extern void SHChangeNotify(uint wEventId, uint uFlags, IntPtr dwItem1, IntPtr dwItem2);
+
 
         /// <summary>
         ///     The MoveWindow function changes the position and dimensions of the specified window. For a top-level window, the

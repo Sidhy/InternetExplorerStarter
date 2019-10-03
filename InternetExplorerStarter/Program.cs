@@ -5,6 +5,10 @@ using NDesk.Options;
 using System.Windows.Forms;
 using System.Threading;
 using System.Diagnostics;
+using System.IO;
+using Microsoft.Win32;
+using System.Security.Principal;
+using System.ComponentModel;
 
 namespace InternetExplorerStarter
 {
@@ -19,7 +23,8 @@ namespace InternetExplorerStarter
             List<string> urls = new List<string>();
             string task_name = "Internet Explorer Starter";
             bool identify = false, show_help = false, maximize = false, show_version = false, keep_running = false;
-            bool kiosk = false, hide_addressbar = false, disable_addressbar = false;
+            bool kiosk = false, hide_addressbar = false, disable_addressbar = false, install_association = false;
+            string file = string.Empty;
             int screenId = 1, offset_x = 0, offset_y = 0, window_h = 0, window_w = 0, refresh = 0;
 
             Thread TrayThread;
@@ -40,6 +45,8 @@ namespace InternetExplorerStarter
                 { "n|name", "Name for task", v => task_name = v },
                 { "e|keeprunning", "Ensures IE is always running", v => keep_running =v != null },
                 { "r|refresh=", "refresh every x seconds (this will activate keep running)", (int v) => refresh = v },
+                { "f|file=", "Open ies file", v => file = v },
+                { "install", "Install/Reinstall file association for .ies files", v => install_association = v !=null },
                 { "version", "Show application version", v => show_version = v != null },
                 { "h|help",  "show this message and exit", v => show_help = v != null },
             };
@@ -70,6 +77,34 @@ namespace InternetExplorerStarter
                 return;
             }
 
+            if (install_association)
+            {
+                Console.WriteLine("Installing file association");
+
+                WindowsPrincipal pricipal = new WindowsPrincipal(WindowsIdentity.GetCurrent());
+                if (!pricipal.IsInRole(WindowsBuiltInRole.Administrator))
+                {
+                    ProcessStartInfo processInfo = new ProcessStartInfo();
+                    processInfo.Verb = "runas";
+                    processInfo.FileName = Application.ExecutablePath;
+                    processInfo.Arguments = "--install";
+                    try
+                    {
+                        Process.Start(processInfo);
+                    }
+                    catch (Win32Exception)
+                    {
+                        Console.WriteLine("Failed to elevate program");
+                    }
+                    return;
+                }
+                else
+                {
+                    InstallFileAssociation(".ies", "InternetExplorerStarter", Application.ExecutablePath, "Launch IE Starter");
+                }
+                return;
+            }
+
             if (identify) /* Identify screen by drawing screen number and exit! */
             {
                 var identifyThread = new Thread(() =>
@@ -82,10 +117,91 @@ namespace InternetExplorerStarter
                 return;
             }
 
+            #region Read Associated/Process File
+            // if set load file from path
+            if (!string.IsNullOrEmpty(file))
+            {
+                if (!File.Exists(file))
+                {
+                    Console.WriteLine("ERROR: File ({0}) does not exist!", file);
+                    return;
+                }
+
+                try
+                {
+                    foreach (var line in File.ReadAllLines(file))
+                    {
+                        if (string.IsNullOrEmpty(line))
+                            continue;
+
+                        var index = line.IndexOf("=");
+                        var cmd = line.Substring(0, index).Trim();
+                        var value = line.Substring(index + 1, line.Length - index - 1).Trim();
+
+                        if (string.IsNullOrWhiteSpace(cmd) || string.IsNullOrWhiteSpace(value))
+                        {
+                            Console.WriteLine("Unable to process {0}", line);
+                            continue;
+                        }
+
+                        switch (cmd)
+                        {
+                            case "url":
+                                urls.Add(value);
+                                break;
+                            case "name":
+                                task_name = value;
+                                break;
+                            case "screen":
+                                screenId = ParseStringToNumber(value);
+                                break;
+                            case "x":
+                                offset_x = ParseStringToNumber(value);
+                                break;
+                            case "y":
+                                offset_y = ParseStringToNumber(value);
+                                break;
+                            case "width":
+                                window_w = ParseStringToNumber(value);
+                                break;
+                            case "height":
+                                window_h = ParseStringToNumber(value);
+                                break;
+                            case "maximize":
+                                maximize = ParseBooleanString(value);
+                                break;
+                            case "kiosk":
+                                kiosk = ParseBooleanString(value);
+                                break;
+                            case "hide_addressbar":
+                                hide_addressbar = ParseBooleanString(value);
+                                break;
+                            case "disable_addressbar":
+                                disable_addressbar = ParseBooleanString(value);
+                                break;
+                            case "keeprunning":
+                                keep_running = ParseBooleanString(value);
+                                break;
+                            case "refresh":
+                                refresh = ParseStringToNumber(value);
+                                break;
+                            default:
+                                Console.WriteLine("Unable to parse {0}", line);
+                                break;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("ERROR: Reading file ({0})", file);
+                    Console.WriteLine(ex);
+                }
+            }
+            #endregion
+
             InternetExplorer IE = new InternetExplorer();
 
             keep_running = keep_running || refresh > 0;
-
             if (keep_running)
             {
                 // place icon in systemtray
@@ -225,6 +341,54 @@ namespace InternetExplorerStarter
             drawObject.Show();
             Thread.Sleep(5000);
             drawObject.Close();
+        }
+
+        private static bool ParseBooleanString(string boolean)
+        {
+            boolean = boolean.ToLower();
+            return boolean.Equals("true");
+        }
+
+        private static int ParseStringToNumber(string number)
+        {
+            try
+            {
+                return Convert.ToInt32(number);
+            }
+            catch
+            { }
+
+            return 0;
+        }
+
+        public static void InstallFileAssociation(string Extension, string KeyName, string OpenWith, string FileDescription)
+        { 
+
+            RegistryKey BaseKey;
+            RegistryKey OpenMethod;
+            RegistryKey Shell;
+            RegistryKey CurrentUser;
+
+            BaseKey = Registry.ClassesRoot.CreateSubKey(Extension);
+            BaseKey.SetValue("", KeyName);
+
+            OpenMethod = Registry.ClassesRoot.CreateSubKey(KeyName);
+            OpenMethod.SetValue("", FileDescription);
+            OpenMethod.CreateSubKey("DefaultIcon").SetValue("", "\"" + OpenWith + "\",0");
+            Shell = OpenMethod.CreateSubKey("Shell");
+            Shell.CreateSubKey("edit").CreateSubKey("command").SetValue("", "\"" + OpenWith + "\"" + " \"-f %1\"");
+            Shell.CreateSubKey("open").CreateSubKey("command").SetValue("", "\"" + OpenWith + "\"" + " \"-f %1\"");
+            BaseKey.Close();
+            OpenMethod.Close();
+            Shell.Close();
+
+            // Delete the key instead of trying to change it
+            CurrentUser = Registry.CurrentUser.OpenSubKey("Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\" + Extension, true);
+            CurrentUser.DeleteSubKey("UserChoice", false);
+            CurrentUser.Close();
+
+            // Tell explorer the file association has been changed
+            WinAPI.SHChangeNotify(0x08000000, 0x0000, IntPtr.Zero, IntPtr.Zero);
         }
 
         public static void ShowHelp()
