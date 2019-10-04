@@ -263,4 +263,4 @@ __pycache__/
 
 *.pfx
 .sign/
-SignedRelease/
+[sS]igned[Rr]elease/
