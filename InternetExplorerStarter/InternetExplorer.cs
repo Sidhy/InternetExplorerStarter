@@ -178,12 +178,17 @@ namespace InternetExplorerStarter
             WinAPI.ShowWindow(GetHWND, WinAPI.ShowWindowCommands.ShowMaximized);
         }
 
+        public void SetFullscreen()
+        {
+            internetExplorer.FullScreen = true;
+        }
+
         /// <summary>
         /// Enable Kiosk mode
         /// </summary>
-        public void SetKioskMode(bool enabled)
+        public void SetKioskMode()
         {
-            internetExplorer.TheaterMode = enabled;
+            internetExplorer.TheaterMode = true;
         }
 
         /// <summary>
@@ -192,6 +197,14 @@ namespace InternetExplorerStarter
         public void HideAddressbar(bool enabled)
         {
             internetExplorer.AddressBar = !enabled;
+        }
+
+        public void SetTopMost()
+        {
+            const uint SWP_NOSIZE = 0x0001;
+            const uint SWP_NOMOVE = 0x0002;
+            const uint SWP_SHOWWINDOW = 0x0040;
+            WinAPI.SetWindowPos(GetHWND, new IntPtr(-1), 0, 0, 0, 0,SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW );
         }
 
         /// <summary>

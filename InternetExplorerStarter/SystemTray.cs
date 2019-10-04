@@ -12,9 +12,8 @@ namespace InternetExplorerStarter
 {
     public partial class SystemTray : Form
     {
-        bool keepRunning;
         ContextMenu trayContextMenu;
-        MenuItem trayClose, trayShowHideConsole;
+        MenuItem trayClose, trayShowHideConsole, trayName, traySpacer;
 
         public SystemTray()
         {
@@ -27,18 +26,26 @@ namespace InternetExplorerStarter
         {
             trayContextMenu = new ContextMenu();
 
+            traySpacer = new MenuItem();
+            traySpacer.Text = "-";
+
             // Initialize trayClose
-            trayClose = new MenuItem();
-            trayClose.Index = 0;
-            trayClose.Text = "E&xit";
-            trayClose.Click += TrayClose_Click;
-            trayContextMenu.MenuItems.Add(trayClose);
+            trayName = new MenuItem();
+            trayName.Text = Program.Name;
+            trayName.Enabled = false;
+            trayContextMenu.MenuItems.Add(trayName);
+
+            trayContextMenu.MenuItems.Add(traySpacer);
 
             trayShowHideConsole = new MenuItem();
-            trayShowHideConsole.Index = 1;
             trayShowHideConsole.Text = "&Show Console";
             trayShowHideConsole.Click += TrayShowHideConsole_Click;
             trayContextMenu.MenuItems.Add(trayShowHideConsole);
+
+            trayClose = new MenuItem();
+            trayClose.Text = "E&xit";
+            trayClose.Click += TrayClose_Click;
+            trayContextMenu.MenuItems.Add(trayClose);
 
             trayIcon.ContextMenu = trayContextMenu;
         }

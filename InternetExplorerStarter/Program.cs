@@ -17,13 +17,14 @@ namespace InternetExplorerStarter
     {
         private static OptionSet options;
         public static bool Exit;
+        public static string Name;
 
         static void Main(string[] args)
         {
             List<string> urls = new List<string>();
             string task_name = "Internet Explorer Starter";
-            bool identify = false, show_help = false, maximize = false, show_version = false, keep_running = false;
-            bool kiosk = false, hide_addressbar = false, disable_addressbar = false, install_association = false;
+            bool identify = false, show_help = false, maximize = false, show_version = false, keep_running = false, topmost = false;
+            bool kiosk = false, hide_addressbar = false, disable_addressbar = false, install_association = false, fullscreen = false;
             string file = string.Empty;
             int screenId = 1, offset_x = 0, offset_y = 0, window_h = 0, window_w = 0, refresh = 0;
 
@@ -40,12 +41,14 @@ namespace InternetExplorerStarter
                 { "height=", "Window height", (int v) => window_h = v },
                 { "m|maximize",  "Maximize window", v => maximize = v != null },
                 { "k|kiosk", "Open in kiosk mode", v => kiosk = v != null },
+                { "f|fullscreen", "Set window fullscreen", v => fullscreen = v != null },
                 { "a|addressbar", "Hide address bar (this also hides tabs)", v => hide_addressbar = v != null },
                 { "d|disable_addressbar", "Disable addressbar", v => disable_addressbar = v != null },
                 { "n|name", "Name for task", v => task_name = v },
+                { "t|topmost", "Set window always on top", v => topmost = v != null },
                 { "e|keeprunning", "Ensures IE is always running", v => keep_running =v != null },
                 { "r|refresh=", "refresh every x seconds (this will activate keep running)", (int v) => refresh = v },
-                { "f|file=", "Open ies file", v => file = v },
+                { "file=", "Open ies file", v => file = v },
                 { "install", "Install/Reinstall file association for .ies files", v => install_association = v !=null },
                 { "version", "Show application version", v => show_version = v != null },
                 { "h|help",  "show this message and exit", v => show_help = v != null },
@@ -62,8 +65,6 @@ namespace InternetExplorerStarter
                 Console.WriteLine("Use --help for more information.");
                 return;
             }
-
-            Console.Title = task_name;
 
             if (show_version)
             {
@@ -84,17 +85,20 @@ namespace InternetExplorerStarter
                 WindowsPrincipal pricipal = new WindowsPrincipal(WindowsIdentity.GetCurrent());
                 if (!pricipal.IsInRole(WindowsBuiltInRole.Administrator))
                 {
-                    ProcessStartInfo processInfo = new ProcessStartInfo();
-                    processInfo.Verb = "runas";
-                    processInfo.FileName = Application.ExecutablePath;
-                    processInfo.Arguments = "--install";
+                    ProcessStartInfo processInfo = new ProcessStartInfo
+                    {
+                        Verb = "runas",
+                        FileName = Application.ExecutablePath,
+                        Arguments = "--install"
+                    };
                     try
                     {
+                        Console.WriteLine("Trying to elevate to install file association");
                         Process.Start(processInfo);
                     }
                     catch (Win32Exception)
                     {
-                        Console.WriteLine("Failed to elevate program");
+                        Console.WriteLine("Failed to elevate");
                     }
                     return;
                 }
@@ -107,13 +111,7 @@ namespace InternetExplorerStarter
 
             if (identify) /* Identify screen by drawing screen number and exit! */
             {
-                var identifyThread = new Thread(() =>
-                {
-                    Identify();
-                });
-                identifyThread.SetApartmentState(ApartmentState.STA);
-                identifyThread.Start();
-                identifyThread.Join();
+                Identify();
                 return;
             }
 
@@ -146,6 +144,9 @@ namespace InternetExplorerStarter
 
                         switch (cmd)
                         {
+                            case "identify":
+                                Identify();
+                                return;
                             case "url":
                                 urls.Add(value);
                                 break;
@@ -169,6 +170,12 @@ namespace InternetExplorerStarter
                                 break;
                             case "maximize":
                                 maximize = ParseBooleanString(value);
+                                break;
+                            case "fullscreen":
+                                fullscreen = ParseBooleanString(value);
+                                break;
+                            case "topmost":
+                                topmost = ParseBooleanString(value);
                                 break;
                             case "kiosk":
                                 kiosk = ParseBooleanString(value);
@@ -199,6 +206,9 @@ namespace InternetExplorerStarter
             }
             #endregion
 
+            Console.Title = task_name;
+            Name = task_name;
+
             InternetExplorer IE = new InternetExplorer();
 
             keep_running = keep_running || refresh > 0;
@@ -209,13 +219,18 @@ namespace InternetExplorerStarter
                 {
                     Application.EnableVisualStyles();
                     Application.SetCompatibleTextRenderingDefault(false);
-                    Application.Run(new SystemTray());
+                    var tray = new SystemTray();
+                    tray.trayIcon.Text = task_name;
+                    Application.Run(tray);
                 });
                 TrayThread.SetApartmentState(ApartmentState.STA);
                 TrayThread.Start();
 
                 // Hide console window
                 WinAPI.ShowWindow(WinAPI.GetConsoleWindow(), WinAPI.ShowWindowCommands.Hide);
+
+                // Disable Close button on Console window
+                WinAPI.DeleteMenu(WinAPI.GetSystemMenu(WinAPI.GetConsoleWindow(), false), 0xF060, 0x0);
             }
 
             Stopwatch sw = new Stopwatch();
@@ -291,7 +306,7 @@ namespace InternetExplorerStarter
                     window_h = window_h != 0 ? window_h : screen.WorkingArea.Height;
                 }
 
-                
+
                 IE.Show();
                 IE.SetForeground();
 
@@ -299,9 +314,12 @@ namespace InternetExplorerStarter
                 WinAPI.MoveWindow(IE.GetHWND, screen_x, screen_y, window_w, window_h, true);
 
                 if (maximize) IE.Maximize();
-                IE.SetKioskMode(kiosk);
+                if (fullscreen) IE.SetFullscreen();
+                if (kiosk) IE.SetKioskMode();
                 IE.HideAddressbar(hide_addressbar);
                 if (disable_addressbar) IE.DisableAddressbar();
+
+                if (topmost) IE.SetTopMost();
 
                 // Exit and keep IE running
                 if (!keep_running)
@@ -317,30 +335,40 @@ namespace InternetExplorerStarter
 
         public static void Identify()
         {
-            int nr = 1;
-            var drawObject = new DrawWindow();
-            Console.WriteLine("Screen info:");
-            foreach (Screen screen in Screen.AllScreens)
+            var identifyThread = new Thread(() =>
             {
-                int w = screen.Bounds.Width;
-                int h = screen.Bounds.Height;
-                int x = screen.Bounds.X;
-                int y = screen.Bounds.Y;
-                drawObject.Create(nr, x, y, w, h);
-                // Show info
-                Console.WriteLine();
-                Console.WriteLine("* Screen {0}", nr);
-                Console.WriteLine("\tName:\t\t {0}", screen.DeviceName);
-                Console.WriteLine("\tX:\t\t {0}", screen.Bounds.X);
-                Console.WriteLine("\tY:\t\t {0}", screen.Bounds.Y);
-                Console.WriteLine("\tW:\t\t {0}", screen.Bounds.Width);
-                Console.WriteLine("\tH:\t\t {0}", screen.Bounds.Height);
-                nr++;
-            }
+                int nr = 1;
+                var drawObject = new DrawWindow();
+                Console.WriteLine("Screen info:");
+                foreach (Screen screen in Screen.AllScreens)
+                {
+                    int w = screen.Bounds.Width;
+                    int h = screen.Bounds.Height;
+                    int x = screen.Bounds.X;
+                    int y = screen.Bounds.Y;
+                    drawObject.Create(nr, x, y, w, h);
+                    // Show info
+                    Console.WriteLine();
+                    Console.WriteLine("* Screen {0}", nr);
+                    Console.WriteLine("\tName:\t\t {0}", screen.DeviceName);
+                    Console.WriteLine("\tX:\t\t {0}", screen.Bounds.X);
+                    Console.WriteLine("\tY:\t\t {0}", screen.Bounds.Y);
+                    Console.WriteLine("\tW:\t\t {0}", screen.Bounds.Width);
+                    Console.WriteLine("\tH:\t\t {0}", screen.Bounds.Height);
+                    nr++; // increment screen number
+                }
 
-            drawObject.Show();
-            Thread.Sleep(5000);
-            drawObject.Close();
+                drawObject.Show();
+                Thread.Sleep(3000);
+                Console.WriteLine("Press any key to exit.");
+                Console.ReadKey();
+                drawObject.Close();
+            });
+            identifyThread.SetApartmentState(ApartmentState.STA);
+            identifyThread.Start();
+            identifyThread.Join();
+
+            
         }
 
         private static bool ParseBooleanString(string boolean)
@@ -376,8 +404,8 @@ namespace InternetExplorerStarter
             OpenMethod.SetValue("", FileDescription);
             OpenMethod.CreateSubKey("DefaultIcon").SetValue("", "\"" + OpenWith + "\",0");
             Shell = OpenMethod.CreateSubKey("Shell");
-            Shell.CreateSubKey("edit").CreateSubKey("command").SetValue("", "\"" + OpenWith + "\"" + " \"-f %1\"");
-            Shell.CreateSubKey("open").CreateSubKey("command").SetValue("", "\"" + OpenWith + "\"" + " \"-f %1\"");
+            Shell.CreateSubKey("edit").CreateSubKey("command").SetValue("", "\"" + OpenWith + "\"" + " \"--file=%1\"");
+            Shell.CreateSubKey("open").CreateSubKey("command").SetValue("", "\"" + OpenWith + "\"" + " \"--file=%1\"");
             BaseKey.Close();
             OpenMethod.Close();
             Shell.Close();
