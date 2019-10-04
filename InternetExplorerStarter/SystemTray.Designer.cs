@@ -58,6 +58,6 @@
 
         #endregion
 
-        private System.Windows.Forms.NotifyIcon trayIcon;
+        public System.Windows.Forms.NotifyIcon trayIcon;
     }
 }
