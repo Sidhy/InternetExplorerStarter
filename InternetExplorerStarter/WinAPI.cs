@@ -26,6 +26,14 @@ namespace InternetExplorerStarter
         [DllImport("shell32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         public static extern void SHChangeNotify(uint wEventId, uint uFlags, IntPtr dwItem1, IntPtr dwItem2);
 
+        [DllImport("user32.dll")]
+        public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+
+        [DllImport("User32.dll")]
+        public static extern Int32 PostMessage(IntPtr hWnd,int Msg,int wParam,int lParam);
+
+        public const int WM_KEYDOWN = 0x100;
+        public const int WM_KEYUP = 0x101;
 
         /// <summary>
         ///     The MoveWindow function changes the position and dimensions of the specified window. For a top-level window, the
@@ -275,7 +283,7 @@ namespace InternetExplorerStarter
             }
         }
 
-        public enum ShowWindowCommands
+        public enum ShowWindowCommands:int
         {
             /// <summary>
             /// Hides the window and activates another window.

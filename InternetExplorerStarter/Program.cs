@@ -243,11 +243,13 @@ namespace InternetExplorerStarter
                     {
                         try
                         {
+                            Console.WriteLine("Refreshing...");
                             IE.Refresh();
                         }
-                        catch
+                        catch (Exception Ex)
                         {
                             Console.WriteLine("Refresh failed.");
+                            Console.WriteLine(Ex);
                         }
                         sw.Restart();
                     }

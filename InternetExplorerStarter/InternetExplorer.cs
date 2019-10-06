@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Threading;
 using Microsoft.Win32;
+using System.Runtime.InteropServices;
 
 namespace InternetExplorerStarter
 {
@@ -253,9 +254,23 @@ namespace InternetExplorerStarter
         /// <summary>
         /// Refresh page every x seconds
         /// </summary>
-        public void Refresh(bool wait = true)
+        public bool Refresh()
         {
-            internetExplorer.Refresh();
+            try
+            {
+                internetExplorer.Refresh2();
+                return true;
+            }
+            catch (COMException)
+            {
+                Console.WriteLine("Failed to refresh while using COM-object");
+            }
+
+            Console.WriteLine("Refreshing alternative method by sending WM_KEY messages to handle: {0}", GetHWND);
+            WinAPI.PostMessage(GetHWND, WinAPI.WM_KEYDOWN, (int)System.Windows.Forms.Keys.F5, 0);
+            WinAPI.PostMessage(GetHWND, WinAPI.WM_KEYUP, (int)System.Windows.Forms.Keys.F5, 1);
+
+            return false;
         }
 
         /// <summary>
